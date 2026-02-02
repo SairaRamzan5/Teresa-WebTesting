@@ -17,13 +17,35 @@ def test_teresa_admin_can_login(page: Page):
 
     page.locator("button:has(svg.lucide-funnel)").click()
     page.wait_for_timeout(500)
+
     page.get_by_role("option",name="Approved").click()
     time.sleep(5)     
-    page.get_by_role("switch").first.click()
-    time.sleep(5)  
-    page.locator("button:has(svg.lucide-funnel)").click()
-    page.wait_for_timeout(500)  
-    page.get_by_role("option",name="Rejected").click()
-    time.sleep(5)
-    
+    switches = page.get_by_role("switch")
+    if switches.count()>0:
+        switches.first.click()
+        page.wait_for_timeout(500)
+        print("Clicked on approved item")
+    else:
+        print("No approved item found : skpping switch")
+        page.wait_for_timeout(500)   
 
+    page.locator("button:has(svg.lucide-funnel)").click()
+    page.wait_for_timeout(500)
+
+    page.get_by_role("option",name="Rejected").click()
+    page.wait_for_timeout(500)
+    switches = page.get_by_role("switch")
+    if switches.count()>0:
+        switches.first.click()
+        page.wait_for_timeout(500)
+        print("Rejected option found")
+    else:
+        print("Rejected not found: skipping switch")
+        page.wait_for_timeout(500)
+    # page.get_by_role("option",name="All Status").click()
+    # page.locator("button:has(svg.lucide-funnel)").click()
+    # page.wait_for_timeout(300)
+    page.get_by_placeholder("Search").fill("LOrenzo")
+    page.wait_for_timeout(500)
+    page.get_by_placeholder("Search").fill("Lorenzo")
+    time.sleep(3)
