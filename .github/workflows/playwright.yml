@@ -12,19 +12,26 @@ jobs:
         with:
           python-version: "3.11"
       
-      - run: pip install pytest playwright pytest-html
+      - name: Install dependencies
+        run: |
+          pip install pytest playwright pytest-html
       
-      - run: python -m playwright install chromium
+      - name: Install browsers
+        run: |
+          python -m playwright install chromium
       
-      - run: |
+      - name: Run Playwright tests
+        run: |
           echo "🚀 Testing Teresa UAT..."
           python -m pytest tests/ \
             --html=report.html \
             --self-contained-html \
-            -v
+            -v \
+            --timeout=300
       
-      - uses: actions/upload-artifact@v4
+      - name: Upload report
         if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: test-report
+          name: playwright-report
           path: report.html
