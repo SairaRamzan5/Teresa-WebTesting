@@ -3,7 +3,7 @@
 on: [push, pull_request]
 
 jobs:
-  test-login-approval:
+  test-login:
     name: "Test Login Approval"
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -17,75 +17,103 @@ jobs:
         with:
           python-version: "3.11"
       
-      - name: Debug - Show test files
+      - name: Install ALL required dependencies
         run: |
-          echo "📁 Current directory: $(pwd)"
-          echo "📁 Tests directory contents:"
-          ls -la tests/
-          echo ""
-          echo "🔍 Looking for login approval test:"
-          find tests/ -name "*login*" -type f
-          find tests/ -name "*approval*" -type f
-      
-      - name: Install dependencies
-        run: |
-          pip install pytest playwright pytest-playwright pytest-html
+          echo "📦 Installing ALL dependencies..."
+          pip install pytest==7.4.4
+          pip install playwright==1.40.0
+          pip install pytest-playwright==0.4.6
+          pip install pytest-html==4.1.1
+          pip install pytest-xdist==3.5.0
+          
+          echo "✅ Dependencies installed:"
+          pip list | grep -E "(pytest|playwright)"
       
       - name: Install Playwright browsers
         run: |
+          echo "🌐 Installing browsers..."
           python -m playwright install chromium
+          python -m playwright install --dry-run
       
-      - name: Check what tests are available
+      - name: Create conftest.py if missing
         run: |
-          echo "🔍 Available tests in test_login_approval.py:"
-          python -m pytest tests/test_login_approval.py --collect-only
-      
-      - name: Run Login Approval Test
-        id: run-test
-        run: |
-          echo "🚀 Running Login Approval Test..."
-          echo "=========================================="
-          
-          # Run the specific test file
-          python -m pytest tests/test_login_approval.py \
-            -v \
-            --html=report.html \
-            --self-contained-html \
-            --timeout=300 \
-            --tb=short \
-            --capture=no  # Show print statements
-          
-          echo "=========================================="
-          echo "✅ Test execution completed"
-      
-      - name: Check report
-        run: |
-          if [ -f "report.html" ]; then
-            echo "✅ Report generated: report.html"
-            echo "Report size: $(wc -l < report.html) lines"
-          else
-            echo "❌ No report generated"
-            # Create dummy report
-            cat > report.html << 'EOF'
-            <html>
-            <head><title>Test Report</title></head>
-            <body>
-              <h1>Test Execution Report</h1>
-              <p>Tests were executed but no report was generated.</p>
-              <p>Check the logs above for details.</p>
-            </body>
-            </html>
+          echo "🔧 Ensuring conftest.py exists..."
+          if [ ! -f "tests/conftest.py" ]; then
+            echo "Creating conftest.py..."
+            cat > tests/conftest.py << 'EOF'
+            import pytest
+            from playwright.sync_api import Browser, Page, sync_playwright
+            
+            @pytest.fixture(scope="session")
+            def browser():
+                with sync_playwright() as p:
+                    browser = p.chromium.launch(headless=True)
+                    yield browser
+                    browser.close()
+            
+            @pytest.fixture(scope="function")
+            def page(browser):
+                context = browser.new_context()
+                page = context.new_page()
+                page.set_default_timeout(30000)
+                yield page
+                context.close()
             EOF
+            echo "✅ conftest.py created"
+          else
+            echo "✅ conftest.py already exists"
           fi
       
-      - name: Upload test results
+      - name: Verify test setup
+        run: |
+          echo "🔍 Verifying test setup..."
+          echo "1. Test file exists:" $(ls tests/test_login_approval.py 2>/dev/null && echo "✅" || echo "❌")
+          echo "2. conftest.py exists:" $(ls tests/conftest.py 2>/dev/null && echo "✅" || echo "❌")
+          echo "3. Python path:"
+          python -c "import sys; print(sys.path)"
+      
+      - name: Run tests with detailed output
+        run: |
+          echo "🚀 Running tests..."
+          echo "========================================"
+          
+          # First, check what pytest finds
+          python -m pytest tests/ --collect-only
+          
+          echo ""
+          echo "========================================"
+          echo "🏃‍♂️ NOW RUNNING TESTS..."
+          echo "========================================"
+          
+          # Run the test with maximum verbosity
+          python -m pytest tests/test_login_approval.py \
+            -v \
+            --tb=long \
+            --capture=no \
+            --html=report.html \
+            --self-contained-html \
+            --timeout=600 \
+            2>&1 | tee test_output.log
+          
+          EXIT_CODE=$?
+          echo ""
+          echo "========================================"
+          echo "Exit code: $EXIT_CODE"
+          echo "========================================"
+          
+          # Show last 50 lines of output
+          echo "📋 LAST 50 LINES OF OUTPUT:"
+          tail -50 test_output.log
+          
+          exit $EXIT_CODE
+      
+      - name: Upload results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: login-approval-test-results
+          name: test-results
           path: |
             report.html
+            test_output.log
             *.png
-            screenshots/
-            videos/
           retention-days: 30
