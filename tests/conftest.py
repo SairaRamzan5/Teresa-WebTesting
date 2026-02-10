@@ -1,31 +1,37 @@
-# tests/conftest.py
+﻿# tests/conftest.py
 import pytest
-from playwright.sync_api import Page
+from playwright.sync_api import Browser, Page, sync_playwright
+from typing import Generator
 
-@pytest.fixture
-def login_as_admin(page: Page):
-    """Fixture to login as admin before test"""
-    print("🔐 Setting up: Logging in as admin...")
-    
-    # Go to login page
+@pytest.fixture(scope="session")
+def browser() -> Generator[Browser, None, None]:
+    """Create a browser instance for the test session"""
+    with sync_playwright() as p:
+        browser = p.chromium.launch(
+            headless=True,
+            args=['--no-sandbox', '--disable-dev-shm-usage']
+        )
+        yield browser
+        browser.close()
+
+@pytest.fixture(scope="function")
+def page(browser: Browser) -> Generator[Page, None, None]:
+    """Create a new page for each test"""
+    context = browser.new_context(
+        viewport={'width': 1920, 'height': 1080}
+    )
+    page = context.new_page()
+    page.set_default_timeout(30000)  # 30 seconds
+    yield page
+    context.close()
+
+@pytest.fixture(scope="function")
+def authenticated_page(page: Page) -> Generator[Page, None, None]:
+    """Create a page with admin already logged in"""
+    # Login logic here
     page.goto("https://backoffice.uat.teresaapp.com/auth/login")
-    
-    # Wait for login form
-    page.wait_for_selector('//input[@type="text"]', timeout=10000)
-    
-    # Fill credentials
-    page.fill('//input[@type="text"]', "admin")
-    page.fill('//input[@type="password"]', "admin123")
-    
-    # Click login
-    page.click('button:has-text("Login")')
-    
-    # Wait for dashboard
-    page.wait_for_selector('text="Welcome to Dashboard!"', timeout=15000)
-    
-    print("✅ Login fixture setup complete")
-    
-    yield page  # Test runs here
-    
-    # Teardown (optional)
-    print("🧹 Cleaning up after test...")
+    page.get_by_role("textbox", name="Email").fill("admin")
+    page.get_by_role("textbox", name="Password").fill("admin123")
+    page.get_by_role("button", name="Login").click()
+    page.wait_for_url("**/dashboard/**")
+    yield page
