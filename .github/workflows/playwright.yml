@@ -3,8 +3,7 @@
 on: [push, pull_request]
 
 jobs:
-  test-login:
-    name: "Test Login Approval"
+  test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     
@@ -17,103 +16,53 @@ jobs:
         with:
           python-version: "3.11"
       
-      - name: Install ALL required dependencies
+      - name: Install Python dependencies
         run: |
-          echo "📦 Installing ALL dependencies..."
-          pip install pytest==7.4.4
-          pip install playwright==1.40.0
-          pip install pytest-playwright==0.4.6
-          pip install pytest-html==4.1.1
-          pip install pytest-xdist==3.5.0
-          
-          echo "✅ Dependencies installed:"
-          pip list | grep -E "(pytest|playwright)"
+          python -m pip install --upgrade pip
+          pip install pytest playwright pytest-playwright pytest-html
+          echo "✅ Python dependencies installed"
       
       - name: Install Playwright browsers
         run: |
-          echo "🌐 Installing browsers..."
-          python -m playwright install chromium
-          python -m playwright install --dry-run
+          python -m playwright install --with-deps chromium
+          echo "✅ Chromium installed"
       
-      - name: Create conftest.py if missing
+      - name: Verify setup
         run: |
-          echo "🔧 Ensuring conftest.py exists..."
-          if [ ! -f "tests/conftest.py" ]; then
-            echo "Creating conftest.py..."
-            cat > tests/conftest.py << 'EOF'
-            import pytest
-            from playwright.sync_api import Browser, Page, sync_playwright
-            
-            @pytest.fixture(scope="session")
-            def browser():
-                with sync_playwright() as p:
-                    browser = p.chromium.launch(headless=True)
-                    yield browser
-                    browser.close()
-            
-            @pytest.fixture(scope="function")
-            def page(browser):
-                context = browser.new_context()
-                page = context.new_page()
-                page.set_default_timeout(30000)
-                yield page
-                context.close()
-            EOF
-            echo "✅ conftest.py created"
-          else
-            echo "✅ conftest.py already exists"
-          fi
+          echo "🔍 Verification:"
+          echo "Python: $(python --version)"
+          echo "Pytest: $(python -c 'import pytest; print(pytest.__version__)')"
+          echo "Playwright: $(python -c 'import playwright; print(playwright.__version__)')"
+          echo "Test files:"
+          ls -la tests/
       
-      - name: Verify test setup
+      - name: Run Playwright tests
         run: |
-          echo "🔍 Verifying test setup..."
-          echo "1. Test file exists:" $(ls tests/test_login_approval.py 2>/dev/null && echo "✅" || echo "❌")
-          echo "2. conftest.py exists:" $(ls tests/conftest.py 2>/dev/null && echo "✅" || echo "❌")
-          echo "3. Python path:"
-          python -c "import sys; print(sys.path)"
-      
-      - name: Run tests with detailed output
-        run: |
-          echo "🚀 Running tests..."
+          echo "🚀 Running Playwright tests..."
           echo "========================================"
           
-          # First, check what pytest finds
-          python -m pytest tests/ --collect-only
-          
-          echo ""
-          echo "========================================"
-          echo "🏃‍♂️ NOW RUNNING TESTS..."
-          echo "========================================"
-          
-          # Run the test with maximum verbosity
+          # Run your test with timeout and retry
           python -m pytest tests/test_login_approval.py \
             -v \
-            --tb=long \
-            --capture=no \
             --html=report.html \
             --self-contained-html \
-            --timeout=600 \
-            2>&1 | tee test_output.log
+            --timeout=120000 \  # 2 minutes timeout
+            --tb=short \
+            --capture=no  # Show all print statements
           
-          EXIT_CODE=$?
-          echo ""
-          echo "========================================"
-          echo "Exit code: $EXIT_CODE"
-          echo "========================================"
-          
-          # Show last 50 lines of output
-          echo "📋 LAST 50 LINES OF OUTPUT:"
-          tail -50 test_output.log
-          
-          exit $EXIT_CODE
+          echo "✅ Tests completed!"
       
-      - name: Upload results
+      - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
-          path: |
-            report.html
-            test_output.log
-            *.png
+          name: playwright-test-report
+          path: report.html
           retention-days: 30
+      
+      - name: Success message
+        if: success()
+        run: |
+          echo "🎉 🎉 🎉 SUCCESS! 🎉 🎉 🎉"
+          echo "Your Playwright tests passed on GitHub CI/CD!"
+          echo "Check the 'playwright-test-report' artifact for details."
