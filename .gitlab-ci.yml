@@ -1,0 +1,43 @@
+﻿# .gitlab-ci.yml
+stages:
+  - test
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  PYTHON_VERSION: "3.11"
+
+cache:
+  paths:
+    - .cache/pip
+  key: "$CI_COMMIT_REF_SLUG"
+
+playwright-tests:
+  stage: test
+  image: mcr.microsoft.com/playwright/python:v1.40.0-focal
+  variables:
+    BASE_URL: "$BASE_URL"
+    HEADLESS: "true"
+    BROWSER: "chromium"
+  before_script:
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+    - pip install pytest pytest-html pytest-xdist
+  script:
+    - python -m pytest tests/ 
+        --browser=$BROWSER 
+        --html=report.html 
+        --self-contained-html 
+        --junitxml=report.xml 
+        -v
+  artifacts:
+    when: always
+    paths:
+      - report.html
+      - report.xml
+      - test-results/
+    reports:
+      junit: report.xml
+    expire_in: 7 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
