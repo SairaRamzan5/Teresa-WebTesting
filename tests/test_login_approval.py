@@ -5,10 +5,16 @@ import time
 def test_teresa_admin_can_login(page: Page):
     page.goto("https://backoffice.uat.teresaapp.com/auth/login")
 
+
+            
+    print("Testing with correct credentials")
+
     page.get_by_role("textbox", name="Email").fill("admin")
     page.get_by_role("textbox", name="Password").fill("admin123")
-
     page.get_by_role("button", name="Login").click()
+    page.wait_for_timeout(500)
+
+  
 
     expect(page).to_have_url(re.compile(r".*/dashboard/?$"))
 
@@ -42,9 +48,7 @@ def test_teresa_admin_can_login(page: Page):
     else:
         print("Rejected not found: skipping switch")
         page.wait_for_timeout(500)
-    # page.get_by_role("option",name="All Status").click()
-    # page.locator("button:has(svg.lucide-funnel)").click()
-    # page.wait_for_timeout(300)
+
     page.get_by_placeholder("Search").fill("LOrenzo")
     page.wait_for_timeout(500)
     page.get_by_placeholder("Search").fill("Lorenzo")
