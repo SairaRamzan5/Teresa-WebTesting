@@ -8,8 +8,9 @@ def browser() -> Generator[Browser, None, None]:
     """Create a browser instance for the test session"""
     with sync_playwright() as p:
         browser = p.chromium.launch(
-            headless=True,
-            args=['--no-sandbox', '--disable-dev-shm-usage']
+            headless=False,
+            args=['--no-sandbox', '--disable-dev-shm-usage',
+                   '--start-maximized','--window-size=1920,1080']
         )
         yield browser
         browser.close()

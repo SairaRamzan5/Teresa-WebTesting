@@ -50,13 +50,17 @@ def test_teresa_admin_can_login(page: Page):
         page.wait_for_timeout(500)
 
     page.get_by_placeholder("Search").fill("LOrenzo")
+    print("Testing with search")
     page.wait_for_timeout(500)
     page.get_by_placeholder("Search").fill("Lorenzo")
     page.wait_for_timeout(500)
     page.get_by_placeholder("Search").fill("---323sdsf")
+    print
     page.wait_for_timeout(500)
     page.get_by_text("Products").click()
+    print("Testing with products")
     expect(page).to_have_url(re.compile(r".*/dashboard/products?$"))
+    print("Testing with login navigation")
     page.wait_for_timeout(300)
     page.locator('span[data-slot="badge"]:has-text("pending")').first.click()
     page.wait_for_timeout(500)
